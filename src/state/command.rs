@@ -3,9 +3,9 @@ use std::sync::Arc;
 
 use minifb::Key;
 
-use crate::graphics::sprites::Sprites;
-use crate::sort_obstacles_by_y;
-use crate::state::{ACCELERATION, Context, JUMP_VELOCITY, MAX_VELOCITY, Obstacle, remove_box};
+use crate::graphics::sprites::{draw_sprite, Sprites};
+use crate::{sort_cloned_obstacles_by_y, sort_obstacles_by_y, Tile, TileType};
+use crate::state::{ACCELERATION, Context, GROUND, JUMP_VELOCITY, MAX_VELOCITY, Obstacle, remove_box};
 use crate::state::Direction::{Left, Right};
 use crate::state::player::Player;
 
@@ -16,7 +16,8 @@ pub trait Command {
 pub struct MoveLeft;
 impl Command for MoveLeft {
     fn execute(&self, context: &mut Context) {
-        let (obstacle_left, _id) = check_collision(context.all_maps[context.current_map_index].obstacles, &context.sprites, &context.player, true);
+
+        let (obstacle_left, _id) = check_collision(&context.all_maps[context.current_map_index].tiles, &context.sprites, &context.player, true);
 
         if !obstacle_left {
             context.player.obstacle_left = false;
@@ -52,8 +53,6 @@ impl Command for MoveLeft {
             context.player.vx = 0.0;
         }
 
-        // Move player based on current velocity
-        // context.player.x -= context.player.vx;
     }
 }
 
@@ -61,7 +60,9 @@ pub struct MoveRight;
 
 impl Command for MoveRight {
     fn execute(&self, context: &mut Context) {
-        let (obstacle_right, _id) = check_collision(context.all_maps[context.current_map_index].obstacles, &context.sprites, &context.player, false);
+
+
+        let (obstacle_right, _id) = check_collision(&context.all_maps[context.current_map_index].tiles, &context.sprites, &context.player, false);
 
         if !obstacle_right {
             context.player.obstacle_right = false;
@@ -99,31 +100,45 @@ impl Command for MoveRight {
     }
 }
 
-pub fn check_collision(obstacles: &Vec<Obstacle>, sprites: &Sprites, player: &Player, is_left: bool) -> (bool, Option<usize>) {
+pub fn identify_grid_index_based_on_coordinates(x: f32, y: f32) -> (usize, usize) {
+    let x_index = (x / 16.0) as usize;
+    let y_index = (y / 16.0) as usize;
+
+    (x_index, y_index)
+}
+
+pub fn check_collision(tiles: &Vec<Vec<Tile>>, sprites: &Sprites, player: &Player, is_left: bool) -> (bool, Option<usize>) {
     let mut collision_id: Option<usize> = None;
-    let collision = obstacles.iter().enumerate().any(|(index, obstacle)| {
+    let mut collision = false;
 
-        if obstacle.active == false {
-            return false;
+    for (y, row) in tiles.iter().enumerate() {
+        for (x, tile) in row.iter().enumerate() {
+            if tile.tile_type == TileType::Obstacle {
+                if !tile.active {
+                    continue;
+                }
+
+                let player_x = if is_left {
+                    player.x + (sprites.player[player.left_increment].width as f32 / 3.5)
+                } else {
+                    player.x + (sprites.player[player.right_increment].width as f32 / 1.5)
+                };
+
+                if player_x > tile.x_left && player_x < tile.x_right && player.y > tile.y_bottom {
+                    collision_id = Some(x + y);
+                    collision = true;
+                    break;
+                }
+            }
         }
-
-        let player_x = if is_left {
-            player.x + (sprites.player[player.left_increment].width as f32 / 2.5)
-        } else {
-            player.x + (sprites.player[player.right_increment].width as f32 / 1.5)
-        };
-        // println!("Checking collision: player_x: {}, obstacle.x_left: {}, obstacle.x_right: {}, player_y: {}, obstacle.y_bottom: {}", player_x, obstacle.x_left, obstacle.x_right, player.y, obstacle.y_bottom);
-        if player_x > obstacle.x_left && player_x < obstacle.x_right && player.y >= obstacle.y_bottom {
-            collision_id = Some(index);
-            true
-        } else {
-            false
+        if collision {
+            break;
         }
-    });
-
-    if let Some(id) = collision_id {
-        // println!("Collision detected at x: {}, y: {}, with obstacle id: {}", player.x, player.y, id);
     }
+
+
+    // print!("Collision detected: {}", collision_id.unwrap_or(0));
+    // TODO: May need to identify exactly the y and x coordinates of the obstacle
 
     (collision, collision_id)
 }
@@ -151,22 +166,34 @@ impl Command for Kick {
         context.player.kick_frame = 0;
         context.player.kick_frame_timer = 0;
 
-        let sorted_obstacles = sort_obstacles_by_y(context.all_maps[context.current_map_index].obstacles);
-
-        let (collision, id) = check_collision(sorted_obstacles, &context.sprites, &context.player, context.player.direction == Left);
-
-        // Check if the player is adjacent to an obstacle to the right
-        if collision {
-            // println!("Player is adjacent to an obstacle with id {} to the right.", id.unwrap());
-            if context.all_maps[context.current_map_index].obstacles[id.unwrap()].durability > 0 {
-                // println!("Obstacle durability: {}", context.all_maps[context.current_map_index].obstacles[id.unwrap()].durability);
-                context.all_maps[context.current_map_index].obstacles[id.unwrap()].durability -= 1;
-            } else {
-                // println!("Obstacle durability: 0");
-                remove_box(context, id.unwrap());
-            }
-
-        }
+        // let sorted_obstacles = sort_cloned_obstacles_by_y(context.all_maps[context.current_map_index].obstacles.clone());
+        // let obstacles = &mut context.all_maps[context.current_map_index].obstacles;
+        // let tiles = &context.all_maps[context.current_map_index].tiles;
+        //
+        //
+        //
+        // let (collision, id) = check_tile_intersection(&context.all_maps[context.current_map_index].tiles, &context.player);
+        //
+        //
+        // //check_collision(&obstacles, &context.sprites, &context.player, context.player.direction == Left);
+        //
+        // // Check if the player is adjacent to an obstacle to the right
+        // if collision {
+        //     let collided_obstacle =  context.all_maps[context.current_map_index].obstacles[id.unwrap()].clone();
+        //     println!("Obstacle detected with id: {}, x.left {}, x.right {}, y.bottom {} and y.top {}",
+        //              id.unwrap(), collided_obstacle.x_left, collided_obstacle.x_right, collided_obstacle.y_bottom, collided_obstacle.y_top);
+        //
+        //     // println!("Player is adjacent to an obstacle with id {} to the right.", id.unwrap());
+        //     if context.all_maps[context.current_map_index].obstacles[id.unwrap()].durability > 0 {
+        //         // println!("Obstacle durability: {}", context.all_maps[context.current_map_index].obstacles[id.unwrap()].durability);
+        //         context.all_maps[context.current_map_index].obstacles[id.unwrap()].durability -= 1;
+        //         println!("Obstacle durability: {}", context.all_maps[context.current_map_index].obstacles[id.unwrap()].durability);
+        //     } else {
+        //         // println!("Obstacle durability: 0");
+        //         remove_box(context, id.unwrap());
+        //     }
+        //
+        // }
     }
 }
 

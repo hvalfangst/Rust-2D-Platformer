@@ -4,6 +4,7 @@ use std::rc::Rc;
 use std::thread::sleep;
 use crate::graphics::renderer::render;
 use crate::state::{Context, Direction, GRAVITY, GROUND, jump_obstacles, LOWER_BOUND, Obstacle, UPPER_BOUND};
+use crate::state::command::identify_grid_index_based_on_coordinates;
 use crate::state::player::Player;
 use crate::state::update::update;
 pub trait GlobalCommand {
@@ -14,34 +15,50 @@ pub struct ApplyGravity;
 
 impl GlobalCommand for ApplyGravity {
     fn execute(&self, context: &mut Context) {
+
+        let (x_grid, y_grid) = identify_grid_index_based_on_coordinates(context.player.x, context.player.y);
+        // println!("x: {:?}, y: {:?}", x_grid, y_grid);
+
         // Apply gravity to the player
         if !context.player.on_ground && !context.player.on_obstacle {
             context.player.vy += GRAVITY;
         }
 
         let mut obstacle_landed = false;
+        let mut x_left: f32 = 0.0;
+        let mut x_right: f32 = 0.0;
 
-        // Apply gravity to all obstacles which have falling boolean
-        for obstacle in context.all_maps[context.current_map_index].obstacles.iter_mut() {
-            if obstacle.active && obstacle.falling {
-                if obstacle.velocity_y >= 16.0 {
-                    // println!("obstacle.velocity_y: {}", obstacle.velocity_y);
-                    obstacle_landed = true;
-                    obstacle.falling = false;
-                } else {
-                    obstacle.y_bottom += GRAVITY * 3.0;
-                    obstacle.y_top += GRAVITY * 3.0;
-                    obstacle.velocity_y += GRAVITY * 3.0;
-                    // println!("obstacle.y_bottom: {}, obstacle.y_top: {}", obstacle.y_bottom, obstacle.y_top);
-                }
-            }
-        }
+        // // Apply gravity to all obstacles which have falling boolean
+        // for obstacle in context.all_maps[context.current_map_index].obstacles.iter_mut() {
+        //     if obstacle.active && obstacle.falling {
+        //         if obstacle.velocity_y >= 16.0 {
+        //             // println!("obstacle.velocity_y: {}", obstacle.velocity_y);
+        //             obstacle.falling = false;
+        //             obstacle_landed = true;
+        //             x_right = obstacle.x_right;
+        //             x_left = obstacle.x_left;
+        //         } else {
+        //             obstacle.y_bottom += GRAVITY * 3.0;
+        //             obstacle.y_top += GRAVITY * 3.0;
+        //             obstacle.velocity_y += GRAVITY * 3.0;
+        //             // println!("obstacle.y_bottom: {}, obstacle.y_top: {}", obstacle.y_bottom, obstacle.y_top);
+        //         }
+        //     }
+        // }
+        //
+        // if obstacle_landed {
+        //
+        //     // Sort obstacles by DESC by y_bottom, meaning the highest obstacles will be put first in the vector (due to polar coordinates)
+        //     context.all_maps[context.current_map_index].obstacles.sort_by(|a, b| {
+        //         // if a.x_left >= x_left && a.x_right <= x_right {
+        //             a.y_bottom.partial_cmp(&b.y_bottom).unwrap()
+        //         // }
+        //     });
+        // }
 
-        if obstacle_landed {
-            // Sort obstacles by DESC by y_bottom, meaning the highest obstacles will be put first in the vector (due to polar coordinates)
-            context.all_maps[context.current_map_index].obstacles.sort_by(|a, b| a.y_bottom.partial_cmp(&b.y_bottom).unwrap());
-        }
     }
+
+
 }
 
 pub struct JumpingObstacles;

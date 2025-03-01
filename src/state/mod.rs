@@ -4,7 +4,7 @@ use minifb::{Key, Window};
 
 use crate::graphics::sprites::Sprites;
 use crate::state::player::{Player, PlayerState};
-use crate::{sort_obstacles_by_y, Tile};
+use crate::{sort_obstacles_by_y, Tile, TileType};
 
 pub mod event_loop;
 pub mod update;
@@ -21,7 +21,7 @@ const JUMP_VELOCITY: f32 = -5.0;
 const MAX_VELOCITY: f32 = 2.0;
 const ACCELERATION: f32 = 0.5;
 const FRICTION: f32 = 0.2;
-const GROUND: f32 = 205.0;
+const GROUND: f32 = 220.0;
 const LOWER_BOUND: f32 = 0.0;
 const UPPER_BOUND: f32 = 225.0;
 const KICK_FRAME_DURATION: u32 = 8;
@@ -63,46 +63,53 @@ pub fn jump_obstacles(mut context: &mut Context) {
 
     let mut on_any_obstacle = false;
 
-    // Check for each obstacle
-    for obstacle in context.all_maps[context.current_map_index].obstacles.iter() {
-
-        if obstacle.active == false {
-            continue;
-        }
-
-        if context.player.x + 10.0 > obstacle.x_left && context.player.x + 5.0 < obstacle.x_right {
-            if context.player.y <= obstacle.y_bottom && context.player.y >= obstacle.y_top {
-                 // println!("context.player.y: {}, obstacle.y_bottom: {}, obstacle.y_top: {}", context.player.y, obstacle.y_bottom, obstacle.y_top);
-                if context.player.state != PlayerState::OnObstacle {
-                    // player just landed on the obstacle
-                    context.player.y = obstacle.y_bottom - 1.0;
-                    context.player.on_obstacle = true;
-                    context.player.on_ground = false;
-                    context.player.is_jumping = false;
-                    context.player.state = PlayerState::OnObstacle;
-                    context.player.vy = 0.0;
-                } else {
-                    // context.player is already on the obstacle
-                    context.player.on_obstacle = true;
-                    context.player.on_ground = false;
+    for (row_index, row) in context.all_maps[context.current_map_index].tiles.iter().enumerate() {
+        for (tile_index, tile) in row.iter().enumerate() {
+            if tile.tile_type == TileType::Obstacle {
+                if !tile.active {
+                    continue;
                 }
-                on_any_obstacle = true;
-                break;
-            } else if context.player.y < obstacle.y_top {
-                // player is above the obstacle but not touching it
-                context.player.on_ground = false;
-                context.player.on_obstacle = false;
-                context.player.above_obstacle = true;
-                context.player.state = PlayerState::InAir;
-                context.player.is_jumping = true;
-                on_any_obstacle = true;
-                break;
+
+                if context.player.x + 16.0  > tile.x_left && context.player.x + 16.0  < tile.x_right {
+                    if context.player.y <= tile.y_bottom && context.player.y >= tile.y_top {
+                        // println!("context.player.y: {}, obstacle.y_bottom: {}, obstacle.y_top: {}", context.player.y, obstacle.y_bottom, obstacle.y_top);
+                        if context.player.state != PlayerState::OnObstacle {
+                            // player just landed on the obstacle
+                            println!("Player landed on obstacle");
+                            context.player.y = tile.y_bottom;
+                            context.player.on_obstacle = true;
+                            context.player.on_ground = false;
+                            context.player.is_jumping = false;
+                            context.player.state = PlayerState::OnObstacle;
+                            context.player.vy = 0.0;
+                        } else {
+                            println!("Player is already on the obstacle");
+                            // context.player is already on the obstacle
+                            context.player.on_obstacle = true;
+                            context.player.on_ground = false;
+                        }
+                        on_any_obstacle = true;
+                        break;
+                    } else if context.player.y < tile.y_top {
+                        println!("Player is above the obstacle");
+                        // player is above the obstacle but not touching it
+                        context.player.on_ground = false;
+                        context.player.on_obstacle = false;
+                        context.player.above_obstacle = true;
+                        context.player.state = PlayerState::InAir;
+                        context.player.is_jumping = true;
+                        on_any_obstacle = true;
+                        break;
+                    }
+                }
+            }
+
             }
         }
-    }
 
     if !on_any_obstacle {
         if context.player.y >= GROUND {
+            println!("Player is on the ground");
             // player is on the ground (not on an obstacle)
             context.player.y = GROUND;
             context.player.vy = 0.0;
@@ -112,6 +119,7 @@ pub fn jump_obstacles(mut context: &mut Context) {
             context.player.state = PlayerState::OnGround;
         } else {
             // player is in the air (not above any obstacle)
+            println!("Player is in the air");
             context.player.on_ground = false;
             context.player.on_obstacle = false;
             context.player.above_obstacle = false;
@@ -160,31 +168,30 @@ impl Viewport {
 }
 
 fn remove_box(context: &mut Context, box_index: usize) {
-    if context.all_maps[context.current_map_index].obstacles[box_index].active {
-        // Obtain the x_left and x_right values of the removed box
-        let removed_box_x_left = context.all_maps[context.current_map_index].obstacles[box_index].x_left;
-        let removed_box_x_right = context.all_maps[context.current_map_index].obstacles[box_index].x_right;
-
-        // Remove the box
-        context.all_maps[context.current_map_index].obstacles.remove(box_index);
-
-        // Shift all boxes above the removed box down by 16 pixels
-        for i in box_index..context.all_maps[context.current_map_index].obstacles.len() {
-            let obstacle = &mut context.all_maps[context.current_map_index].obstacles[i];
-            if obstacle.x_left >= removed_box_x_left && obstacle.x_right <= removed_box_x_right {
-                obstacle.falling = true;
-                obstacle.velocity_y = 0.0;
-                // println!("Box {} is falling", i);
-            }
-        }
-    }
+    // if context.all_maps[context.current_map_index].obstacles[box_index].active {
+    //     // Obtain the x_left and x_right values of the removed box
+    //     let removed_box_x_left = context.all_maps[context.current_map_index].obstacles[box_index].x_left;
+    //     let removed_box_x_right = context.all_maps[context.current_map_index].obstacles[box_index].x_right;
+    //
+    //     // Remove the box
+    //     context.all_maps[context.current_map_index].obstacles.remove(box_index);
+    //
+    //     // Shift all boxes above the removed box down by 16 pixels
+    //     for i in box_index..context.all_maps[context.current_map_index].obstacles.len() {
+    //         let obstacle = &mut context.all_maps[context.current_map_index].obstacles[i];
+    //         if obstacle.x_left >= removed_box_x_left && obstacle.x_right <= removed_box_x_right {
+    //             obstacle.falling = true;
+    //             obstacle.velocity_y = 0.0;
+    //             // println!("Box {} is falling", i);
+    //         }
+    //     }
+    // }
 }
 
 
-pub struct Map<'a> {
+pub struct Map {
     pub id: usize,
-    pub tiles: Vec<Tile>,
-    pub obstacles: &'a mut Vec<Obstacle>,
+    pub tiles: Vec<Vec<Tile>>,
     pub width: usize,
     pub height: usize,
     pub starting_x: f32,
@@ -205,6 +212,6 @@ pub struct Context<'a> {
     pub scaled_buffer: &'a mut Vec<u32>,
     pub game_over_index: usize,
     pub viewport: Viewport,
-    pub all_maps: Vec<Map<'a>>,
+    pub all_maps: Vec<Map>,
     pub current_map_index: usize
 }

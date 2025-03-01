@@ -7,9 +7,9 @@ O O O O O O O O O O O O O O O O
 O O O O O O O O O O O O O O O O
 O O O O O O O O O O O O O O O O
 O O O O O O O O O O O O O O O O
-O O O O O O O O O X O O O O O O
-O O O O O O O O O X O O O O O O
-O O O O O O O O O X O O O O O O
-G G G G G O O X G X V X G G G G
-G G G G G G G G G G V G G G G G
-G G G G G G G G G G V G G G G G
+O O O O O O O O O O O O O O O O
+O O O O O O O O O O O O O O O O
+O O O O O O O O O O O O O O O O
+O O O O O X O O O O O O O O O O
+O O O O X X X O O O O O O O O O
+O O O O O O O O O O O O O O O O

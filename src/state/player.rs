@@ -53,7 +53,7 @@ impl Player {
             y,
             vx: 0.0,
             vy: 0.0,
-            on_ground: false,
+            on_ground: true,
             last_key: None,
             on_obstacle: false,
             left_increment: 4,

@@ -1,8 +1,8 @@
 use minifb::Key;
 
 use crate::graphics::sprites::draw_sprite;
-use crate::state::*;
 use crate::state::Direction::{Left, Right};
+use crate::state::*;
 use crate::TileType;
 
 pub fn update(context: &mut Context) {
@@ -14,7 +14,7 @@ fn draw_player(context: &mut Context) {
 
     // Determine the current direction and action of the player
     let direction = context.player.direction;
-    let last_key = context.player.last_key.unwrap_or(Key::D);
+    context.player.last_key.unwrap_or(Key::D);
 
     // Determine the sprite to draw
     let sprite_to_draw =
@@ -79,7 +79,7 @@ fn draw_player(context: &mut Context) {
     if !context.player.on_obstacle && !context.player.above_obstacle {
         draw_sprite(
             context.player.x as usize,
-            GROUND as usize + 3,
+            context.player.y as usize + 3,
             shadow_sprite,
             context.window_buffer,
             context.all_maps[context.current_map_index].width
@@ -99,23 +99,27 @@ fn draw_game_world(context: &mut Context) {
     // Then draw the sky, which alternates between four sprites to emulate clouds
     draw_sprite(0, 0, &context.sprites.sky[context.sky_sprite_index], context.window_buffer, context.all_maps[context.current_map_index].width);
 
+    for (row_index, row) in context.all_maps[context.current_map_index].tiles.iter().enumerate() {
+        for (tile_index, tile) in row.iter().enumerate() {
+            if tile.tile_type == TileType::Obstacle {
+                // println!("Drawing obstacle with id {:?} at x.left: {}, y.bottom: {}", tile.id, tile.x_left, tile.y_bottom);
+                if !tile.active {
+                    continue;
+                }
+                    // println!("Drawing obstacle with id {:?} at x.left: {}, y.bottom: {}", tile.id, tile.x_left, tile.y_bottom);
+                    let metal_box_sprite =
+                        if tile.durability == 2 {
+                            &context.sprites.metal_box[0] // undamaged
+                        } else if tile.durability == 1 {
+                            &context.sprites.metal_box[1] // slightly damaged
+                        } else {
+                            &context.sprites.metal_box[2] // damaged
+                        };
 
-
-    context.all_maps[context.current_map_index].obstacles.iter().enumerate().for_each(|(index, obstacle)| {
-        if obstacle.active {
-            let metal_box_sprite =
-            if obstacle.durability == 2 {
-                &context.sprites.metal_box[0] // undamaged
-            } else if obstacle.durability == 1 {
-                &context.sprites.metal_box[1] // slightly damaged
-            } else {
-                &context.sprites.metal_box[2] // damaged
-            };
-
-            draw_sprite(obstacle.x_left as usize, obstacle.y_bottom as usize, metal_box_sprite, context.window_buffer, context.all_maps[context.current_map_index].width);
-        }
-
-    });
+                    draw_sprite(tile.x_left as usize, tile.y_bottom as usize, metal_box_sprite, context.window_buffer, context.all_maps[context.current_map_index].width);
+                }
+            }
+        };
 
 
     if context.player.game_over {
